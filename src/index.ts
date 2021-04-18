@@ -50,8 +50,9 @@ export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, passwo
   // Rest of read size for block size
   let restByteSize = blockByteSize;
   // Chunk which contains previous chunk
-  const chunk: Uint8Array = new Uint8Array(blockByteSize);
-  let chunkOffset = 0;
+  const block: Uint8Array = new Uint8Array(blockByteSize);
+  // Offset which current chunk should set on
+  let blockOffset = 0;
   return new ReadableStream({
     async start(ctrl) {
       ctrl.enqueue(mergeUint8Arrays([
@@ -66,19 +67,18 @@ export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, passwo
         return;
       }
       restByteSize -= result.value.byteLength;
+      block.set(result.value, blockOffset);
       const {cryptoKey, iv: counter} = await keyAndIvPromise;
-      const data = chunk;
-      data.set(result.value, chunkOffset);
-      const encrypted0 = await crypto.subtle.encrypt({ name: "AES-CTR", counter: counter, length: ivBitSize }, cryptoKey, data);
-      const encrypted = encrypted0.slice(chunkOffset, chunkOffset + result.value.byteLength);
-      chunkOffset += result.value.byteLength;
+      const blockEncrypted = await crypto.subtle.encrypt({ name: "AES-CTR", counter: counter, length: ivBitSize }, cryptoKey, block);
+      const encrypted = blockEncrypted.slice(blockOffset, blockOffset + result.value.byteLength);
+      blockOffset += result.value.byteLength;
       ctrl.enqueue(new Uint8Array(encrypted));
       // If one block encrypted
       if (restByteSize === 0) {
         // Increment counter destructively
         incrementCounter(counter);
         restByteSize = blockByteSize;
-        chunkOffset = 0;
+        blockOffset = 0;
       }
     }
   });
@@ -98,6 +98,12 @@ export function aesCtrDecrypt(readableStream: ReadableStream<Uint8Array>, passwo
   let salt: Uint8Array;
   let cryptoKey: CryptoKey;
   let counter: Uint8Array;
+  // Rest of read size for block size
+  let restByteSize = blockByteSize;
+  // Block which contains previous chunk
+  const block: Uint8Array = new Uint8Array(blockByteSize);
+  // Offset which current chunk should set on
+  let blockOffset = 0;
   return new ReadableStream({
     async start(ctrl) {
       const Salted__ = await reader.read(8);
@@ -110,15 +116,24 @@ export function aesCtrDecrypt(readableStream: ReadableStream<Uint8Array>, passwo
       counter = keyAndIv.iv;
     },
     async pull(ctrl) {
-      const result = await reader.read(blockByteSize);
+      const result = await reader.read(restByteSize, false);
       if (result.done) {
         ctrl.close();
         return;
       }
-      const decrypted = await crypto.subtle.decrypt({ name: "AES-CTR", counter, length: ivBitSize }, cryptoKey, result.value);
+      restByteSize -= result.value.byteLength;
+      block.set(result.value, blockOffset);
+      const blockDecrypted = await crypto.subtle.decrypt({ name: "AES-CTR", counter, length: ivBitSize }, cryptoKey, block);
+      const decrypted = blockDecrypted.slice(blockOffset, blockOffset + result.value.byteLength);
+      blockOffset += result.value.byteLength;
       ctrl.enqueue(new Uint8Array(decrypted));
-      // Increment counter destructively
-      incrementCounter(counter);
+      // If one block decrypted
+      if (restByteSize === 0) {
+        // Increment counter destructively
+        incrementCounter(counter);
+        restByteSize = blockByteSize;
+        blockOffset = 0;
+      }
     }
   })
 }
