@@ -1,7 +1,7 @@
 {
   "name": "openssl-aes-ctr-stream",
   "version": "0.1.0-SNAPSHOT",
-  "description": "openssl-aes-ctr-stream",
+  "description": "OpenSSL-compatible AES CTR encryption/decryption for stream",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "scripts": {
@@ -10,7 +10,9 @@
     "test": "karma start"
   },
   "keywords": [
-    "TypeScript"
+    "openssl",
+    "aes-ctr",
+    "encryption"
   ],
   "repository": {
     "type": "git",
@@ -30,5 +32,8 @@
     "power-assert": "^1.6.1",
     "typescript": "^4.2.4"
   },
-  "dependencies": {}
+  "dependencies": {
+    "binconv": "^0.2.0",
+    "readable-stream-sized-reader": "github:nwtgck/readable-stream-sized-reader-npm"
+  }
 }
