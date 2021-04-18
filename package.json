@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
-    "test": "mocha --require ts-node/register test/**/*.ts"
+    "test": "karma start"
   },
   "keywords": [
     "TypeScript"
@@ -19,11 +19,15 @@
   "author": "Ryo Ota <nwtgck@nwtgck.org> (https://github.com/nwtgck)",
   "license": "MIT",
   "devDependencies": {
-    "@types/mocha": "^8.2.2",
+    "@types/jasmine": "^3.6.9",
     "@types/power-assert": "^1.5.3",
-    "mocha": "^8.3.2",
+    "jasmine-core": "^3.7.1",
+    "karma": "^6.3.2",
+    "karma-chrome-launcher": "^3.1.0",
+    "karma-cli": "^2.0.0",
+    "karma-jasmine": "^4.0.1",
+    "karma-typescript": "^5.5.1",
     "power-assert": "^1.6.1",
-    "ts-node": "^9.1.1",
     "typescript": "^4.2.4"
   },
   "dependencies": {}
