@@ -47,6 +47,11 @@ export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, passwo
   const reader = new ReadableStreamSizedReader(readableStream.getReader());
   const salt = crypto.getRandomValues(new Uint8Array(8));
   const keyAndIvPromise = deriveKeyAndIvByPbkdf2(salt, password, pbkdf2Options);
+  // Rest of read size for block size
+  let restByteSize = blockByteSize;
+  // Chunk which contains previous chunk
+  const chunk: Uint8Array = new Uint8Array(blockByteSize);
+  let chunkOffset = 0;
   return new ReadableStream({
     async start(ctrl) {
       ctrl.enqueue(mergeUint8Arrays([
@@ -55,16 +60,26 @@ export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, passwo
       ]));
     },
     async pull(ctrl) {
-      const result = await reader.read(blockByteSize);
+      const result = await reader.read(restByteSize, false);
       if(result.done) {
         ctrl.close();
         return;
       }
+      restByteSize -= result.value.byteLength;
       const {cryptoKey, iv: counter} = await keyAndIvPromise;
-      const encrypted = await crypto.subtle.encrypt({ name: "AES-CTR", counter: counter, length: ivBitSize }, cryptoKey, result.value);
+      const data = chunk;
+      data.set(result.value, chunkOffset);
+      const encrypted0 = await crypto.subtle.encrypt({ name: "AES-CTR", counter: counter, length: ivBitSize }, cryptoKey, data);
+      const encrypted = encrypted0.slice(chunkOffset, chunkOffset + result.value.byteLength);
+      chunkOffset += result.value.byteLength;
       ctrl.enqueue(new Uint8Array(encrypted));
-      // Increment counter destructively
-      incrementCounter(counter);
+      // If one block encrypted
+      if (restByteSize === 0) {
+        // Increment counter destructively
+        incrementCounter(counter);
+        restByteSize = blockByteSize;
+        chunkOffset = 0;
+      }
     }
   });
 }
