@@ -1,11 +1,10 @@
 import {ReadableStreamSizedReader} from "readable-stream-sized-reader";
 import {mergeUint8Arrays} from "binconv/dist/src/mergeUint8Arrays";
 
-const keyBitSize = 256;
 const ivBitSize = 128;
 const blockByteSize = 16;
 
-async function deriveKeyAndIvByPbkdf2(salt: Uint8Array, password: string, options: { iterations: number, hash: "SHA-256" }): Promise<{ key: Uint8Array, iv: Uint8Array }> {
+async function deriveKeyAndIvByPbkdf2(salt: Uint8Array, password: string, options: { keyBits: 128 | 256, iterations: number, hash: "SHA-256" }): Promise<{ key: Uint8Array, iv: Uint8Array }> {
   const keyMaterial = await window.crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(password),
@@ -21,11 +20,11 @@ async function deriveKeyAndIvByPbkdf2(salt: Uint8Array, password: string, option
       hash: options.hash
     },
     keyMaterial,
-    keyBitSize + ivBitSize,
+    options.keyBits + ivBitSize,
   );
   return {
-    key: new Uint8Array(keyIvBits.slice(0, keyBitSize / 8)),
-    iv: new Uint8Array(keyIvBits.slice(keyBitSize / 8)),
+    key: new Uint8Array(keyIvBits.slice(0, options.keyBits / 8)),
+    iv: new Uint8Array(keyIvBits.slice(options.keyBits / 8)),
   }
 }
 
@@ -72,7 +71,7 @@ export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, params
   });
 }
 
-export function aesCtrEncryptWithPbkdf2(readableStream: ReadableStream<Uint8Array>, password: string, pbkdf2Options: { iterations: number, hash: "SHA-256" } ): ReadableStream<Uint8Array> {
+export function aesCtrEncryptWithPbkdf2(readableStream: ReadableStream<Uint8Array>, password: string, pbkdf2Options: { keyBits: 128 | 256, iterations: number, hash: "SHA-256" } ): ReadableStream<Uint8Array> {
   const salt = crypto.getRandomValues(new Uint8Array(8));
   let key: Uint8Array;
   let iv: Uint8Array;
@@ -145,7 +144,7 @@ export function aesCtrDecrypt(readableStream: ReadableStream<Uint8Array>, params
   });
 }
 
-export function aesCtrDecryptWithPbkdf2(encryptedReadableStream: ReadableStream<Uint8Array>, password: string, pbkdf2Options: { iterations: number, hash: "SHA-256" } ): ReadableStream<Uint8Array> {
+export function aesCtrDecryptWithPbkdf2(encryptedReadableStream: ReadableStream<Uint8Array>, password: string, pbkdf2Options: { keyBits: 128 | 256, iterations: number, hash: "SHA-256" } ): ReadableStream<Uint8Array> {
   const encryptedReaderWithSalt = new ReadableStreamSizedReader(encryptedReadableStream.getReader());
   let salt: Uint8Array;
   let decryptedReader: ReadableStreamDefaultReader<Uint8Array>;
