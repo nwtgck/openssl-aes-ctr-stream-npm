@@ -36,6 +36,30 @@ async function deriveKeyAndIvByPbkdf2(salt: Uint8Array, password: string, option
   }
 }
 
+async function deriveKeyAndIvByPbkdf2_2(salt: Uint8Array, password: string, options: { iterations: number, hash: "SHA-256" }): Promise<{ key: Uint8Array, iv: Uint8Array }> {
+  const keyMaterial = await window.crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits", "deriveKey"]
+  );
+  const keyIvBits = await window.crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: salt,
+      iterations: options.iterations,
+      hash: options.hash
+    },
+    keyMaterial,
+    keyBitSize + ivBitSize,
+  );
+  return {
+    key: new Uint8Array(keyIvBits.slice(0, keyBitSize / 8)),
+    iv: new Uint8Array(keyIvBits.slice(keyBitSize / 8)),
+  }
+}
+
 function incrementCounter(counter: Uint8Array) {
   for (let i = counter.length - 1; i >= 0; i--) {
     counter[i]++;
@@ -43,23 +67,18 @@ function incrementCounter(counter: Uint8Array) {
   }
 }
 
-export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, password: string, pbkdf2Options: { iterations: number, hash: "SHA-256" } ): ReadableStream<Uint8Array> {
+export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, params: { salt: Uint8Array, key: Uint8Array, iv: Uint8Array } ): ReadableStream<Uint8Array> {
   const reader = new ReadableStreamSizedReader(readableStream.getReader());
-  const salt = crypto.getRandomValues(new Uint8Array(8));
-  const keyAndIvPromise = deriveKeyAndIvByPbkdf2(salt, password, pbkdf2Options);
   // Rest of read size for block size
   let restByteSize = blockByteSize;
   // Chunk which contains previous chunk
   const block: Uint8Array = new Uint8Array(blockByteSize);
   // Offset which current chunk should set on
   let blockOffset = 0;
+  // Copy iv as counter because counter is updated destructively
+  const counter = params.iv.slice();
+  const cryptoKeyPromise = crypto.subtle.importKey("raw", params.key, { name: "AES-CTR" }, false, ["encrypt", "decrypt"]);
   return new ReadableStream({
-    async start(ctrl) {
-      ctrl.enqueue(mergeUint8Arrays([
-        new TextEncoder().encode('Salted__'),
-        salt
-      ]));
-    },
     async pull(ctrl) {
       const result = await reader.read(restByteSize, false);
       if(result.done) {
@@ -68,7 +87,7 @@ export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, passwo
       }
       restByteSize -= result.value.byteLength;
       block.set(result.value, blockOffset);
-      const {cryptoKey, iv: counter} = await keyAndIvPromise;
+      const cryptoKey = await cryptoKeyPromise;
       const blockEncrypted = await crypto.subtle.encrypt({ name: "AES-CTR", counter: counter, length: ivBitSize }, cryptoKey, block);
       const encrypted = blockEncrypted.slice(blockOffset, blockOffset + result.value.byteLength);
       blockOffset += result.value.byteLength;
@@ -80,6 +99,34 @@ export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, passwo
         restByteSize = blockByteSize;
         blockOffset = 0;
       }
+    }
+  });
+}
+
+export function aesCtrEncryptWithPbkdf2(readableStream: ReadableStream<Uint8Array>, password: string, pbkdf2Options: { iterations: number, hash: "SHA-256" } ): ReadableStream<Uint8Array> {
+  const salt = crypto.getRandomValues(new Uint8Array(8));
+  let key: Uint8Array;
+  let iv: Uint8Array;
+  let reader: ReadableStreamDefaultReader<Uint8Array>;
+
+  return new ReadableStream({
+    async start(ctrl) {
+      ctrl.enqueue(mergeUint8Arrays([
+        new TextEncoder().encode('Salted__'),
+        salt
+      ]));
+      const keyAndIv = await deriveKeyAndIvByPbkdf2_2(salt, password, pbkdf2Options);
+      key = keyAndIv.key;
+      iv = keyAndIv.iv;
+      reader = aesCtrEncrypt(readableStream, { salt, key, iv }).getReader();
+    },
+    async pull(ctrl) {
+      const result = await reader.read();
+      if (result.done) {
+        ctrl.close();
+        return;
+      }
+      ctrl.enqueue(result.value);
     }
   });
 }

@@ -1,8 +1,36 @@
 import * as assert from 'power-assert';
-import {aesCtrDecrypt, aesCtrEncrypt} from "../src";
-import {readableStreamToUint8Array} from "binconv";
+import {aesCtrDecrypt, aesCtrEncrypt, aesCtrEncryptWithPbkdf2} from "../src";
+import {readableStreamToUint8Array, base64ToUint8Array} from "binconv";
+
+function hexStringToUint8Array(hexString: String): Uint8Array {
+  if(hexString.length % 2 !== 0) {
+    throw new Error(`length of hex string should be even number but ${hexString.length}`);
+  }
+  const arr = new Uint8Array(hexString.length / 2);
+  for (let i = 0; i < arr.length; i++) {
+    arr[i] = parseInt(hexString.substr(i * 2, 2), 16);
+  }
+  return arr;
+}
 
 describe('aes-ctr', () => {
+  //  base: echo "hello, world" | openssl aes-256-ctr -S AC2FDA1FA716E4B3 -K 95C2692DFAEA430A7F3712BE22E786384EA3E29EDA7ECDA52CECFC3AF327F916 -iv C7215956D07AE3D880A18BAA046EE598 -a
+  it('should encrypt', async () => {
+    const plainReadableStream = new ReadableStream({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode("hello, world\n"));
+        ctrl.close();
+      }
+    })
+    const salt = hexStringToUint8Array("AC2FDA1FA716E4B3");
+    const key = hexStringToUint8Array('95C2692DFAEA430A7F3712BE22E786384EA3E29EDA7ECDA52CECFC3AF327F916');
+    const iv = hexStringToUint8Array('C7215956D07AE3D880A18BAA046EE598');
+    const encryptedReadableStream = aesCtrEncrypt(plainReadableStream, { salt, key, iv });
+    const encrypted: Uint8Array = await readableStreamToUint8Array(encryptedReadableStream);
+    const expected: Uint8Array = base64ToUint8Array('wc70/4v9cC2D8QrMUg==');
+    assert.deepStrictEqual(encrypted, expected);
+  });
+
   it('should encrypt and decrypt', async () => {
     const plainReadableStream =  new ReadableStream({
       start: (controller) => {
@@ -17,7 +45,7 @@ describe('aes-ctr', () => {
       iterations: 100000,
       hash: "SHA-256",
     } as const;
-    const encryptedReadableStream = aesCtrEncrypt(plainReadableStream, password, pbkdf2Options);
+    const encryptedReadableStream = aesCtrEncryptWithPbkdf2(plainReadableStream, password, pbkdf2Options);
     const decryptedReadableStream = aesCtrDecrypt(encryptedReadableStream, password, pbkdf2Options)
     const decryptedText: string = new TextDecoder().decode(await readableStreamToUint8Array(decryptedReadableStream));
     assert.strictEqual(decryptedText, 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdeABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD01234567890123456789012345678901234567890123');
