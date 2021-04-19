@@ -4,10 +4,10 @@ import {mergeUint8Arrays} from "binconv/dist/src/mergeUint8Arrays";
 const ivBitSize = 128;
 const blockByteSize = 16;
 
-export async function deriveKeyAndIvByPbkdf2(salt: Uint8Array, password: string, options: { keyBits: 128 | 256, iterations: number, hash: HashAlgorithmIdentifier }): Promise<{ key: Uint8Array, iv: Uint8Array }> {
+export async function deriveKeyAndIvByPbkdf2(params: { salt: Uint8Array, password: string, keyBits: 128 | 256, iterations: number, hash: HashAlgorithmIdentifier }): Promise<{ key: Uint8Array, iv: Uint8Array }> {
   const keyMaterial = await window.crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(password),
+    new TextEncoder().encode(params.password),
     "PBKDF2",
     false,
     ["deriveBits", "deriveKey"]
@@ -15,16 +15,16 @@ export async function deriveKeyAndIvByPbkdf2(salt: Uint8Array, password: string,
   const keyIvBits = await window.crypto.subtle.deriveBits(
     {
       name: "PBKDF2",
-      salt: salt,
-      iterations: options.iterations,
-      hash: options.hash
+      salt: params.salt,
+      iterations: params.iterations,
+      hash: params.hash
     },
     keyMaterial,
-    options.keyBits + ivBitSize,
+    params.keyBits + ivBitSize,
   );
   return {
-    key: new Uint8Array(keyIvBits.slice(0, options.keyBits / 8)),
-    iv: new Uint8Array(keyIvBits.slice(options.keyBits / 8)),
+    key: new Uint8Array(keyIvBits.slice(0, params.keyBits / 8)),
+    iv: new Uint8Array(keyIvBits.slice(params.keyBits / 8)),
   }
 }
 
@@ -83,7 +83,11 @@ export function aesCtrEncryptWithPbkdf2(readableStream: ReadableStream<Uint8Arra
         new TextEncoder().encode('Salted__'),
         salt
       ]));
-      const keyAndIv = await deriveKeyAndIvByPbkdf2(salt, password, pbkdf2Options);
+      const keyAndIv = await deriveKeyAndIvByPbkdf2({
+        salt,
+        password,
+        ...pbkdf2Options
+      });
       key = keyAndIv.key;
       iv = keyAndIv.iv;
       reader = aesCtrEncrypt(readableStream, { salt, key, iv }).getReader();
@@ -155,7 +159,11 @@ export function aesCtrDecryptWithPbkdf2(encryptedReadableStream: ReadableStream<
       const saltResult = await encryptedReaderWithSalt.read(8);
       throwIfUnexpectedLength(saltResult, 8);
       salt = saltResult.value;
-      const {key, iv} = await deriveKeyAndIvByPbkdf2(salt, password, pbkdf2Options);
+      const {key, iv} = await deriveKeyAndIvByPbkdf2({
+        salt,
+        password,
+        ...pbkdf2Options
+      });
       const encryptedReadableStream = new ReadableStream<Uint8Array>({
         async pull(ctrl) {
           const result = await encryptedReaderWithSalt.read();

@@ -121,9 +121,9 @@ describe('aes-ctr', () => {
 
 describe('deriveKeyAndIvByPbkdf2', () => {
   it('should derive key as the same as openssl does where 128-bit key -S AC2FDA1FA716E4B3 -md sha1 -iter 100000 -pass pass:1234', async () => {
-    const salt = hexStringToUint8Array("AC2FDA1FA716E4B3");
-    const password = "1234";
-    const {key, iv} = await deriveKeyAndIvByPbkdf2(salt, password, {
+    const {key, iv} = await deriveKeyAndIvByPbkdf2({
+      salt: hexStringToUint8Array("AC2FDA1FA716E4B3"),
+      password: "1234",
       keyBits: 128,
       iterations: 100000,
       hash: "SHA-1",
@@ -136,9 +136,9 @@ describe('deriveKeyAndIvByPbkdf2', () => {
   });
 
   it('should derive key as the same as openssl does where 128-bit key -S AC2FDA1FA716E4B3 -md sha512 -iter 100000 -pass pass:1234', async () => {
-    const salt = hexStringToUint8Array("AC2FDA1FA716E4B3");
-    const password = "1234";
-    const {key, iv} = await deriveKeyAndIvByPbkdf2(salt, password, {
+    const {key, iv} = await deriveKeyAndIvByPbkdf2( {
+      salt: hexStringToUint8Array("AC2FDA1FA716E4B3"),
+      password: "1234",
       keyBits: 128,
       iterations: 100000,
       hash: "SHA-512",
