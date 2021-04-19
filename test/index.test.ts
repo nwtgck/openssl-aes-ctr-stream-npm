@@ -65,13 +65,13 @@ describe('aes-ctr', () => {
         ctrl.close();
       }
     });
-    const password = "1234";
     const pbkdf2Options = {
+      password: "1234",
       keyBits: 128,
       iterations: 100000,
       hash: "SHA-256",
     } as const;
-    const decryptedReadableStream = aesCtrDecryptWithPbkdf2(encryptedReadableStream, password, pbkdf2Options)
+    const decryptedReadableStream = aesCtrDecryptWithPbkdf2(encryptedReadableStream, pbkdf2Options);
     const decryptedText: string = new TextDecoder().decode(await readableStreamToUint8Array(decryptedReadableStream));
     assert.strictEqual(decryptedText, "hello, world\n");
   });
@@ -85,13 +85,13 @@ describe('aes-ctr', () => {
         ctrl.close();
       }
     });
-    const password = "1234";
     const pbkdf2Options = {
+      password: "1234",
       keyBits: 256,
       iterations: 100000,
       hash: "SHA-256",
     } as const;
-    const decryptedReadableStream = aesCtrDecryptWithPbkdf2(encryptedReadableStream, password, pbkdf2Options)
+    const decryptedReadableStream = aesCtrDecryptWithPbkdf2(encryptedReadableStream, pbkdf2Options);
     const decryptedText: string = new TextDecoder().decode(await readableStreamToUint8Array(decryptedReadableStream));
     assert.strictEqual(decryptedText, "hello, world\n");
   });
@@ -105,14 +105,14 @@ describe('aes-ctr', () => {
         controller.close();
       }
     });
-    const password = "1234";
     const pbkdf2Options = {
+      password: "1234",
       keyBits: 256,
       iterations: 100000,
       hash: "SHA-256",
     } as const;
-    const encryptedReadableStream = aesCtrEncryptWithPbkdf2(plainReadableStream, password, pbkdf2Options);
-    const decryptedReadableStream = aesCtrDecryptWithPbkdf2(encryptedReadableStream, password, pbkdf2Options)
+    const encryptedReadableStream = aesCtrEncryptWithPbkdf2(plainReadableStream, pbkdf2Options);
+    const decryptedReadableStream = aesCtrDecryptWithPbkdf2(encryptedReadableStream, pbkdf2Options);
     const decryptedText: string = new TextDecoder().decode(await readableStreamToUint8Array(decryptedReadableStream));
     assert.strictEqual(decryptedText, 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdeABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD01234567890123456789012345678901234567890123');
   });
