@@ -4,7 +4,7 @@ import {mergeUint8Arrays} from "binconv/dist/src/mergeUint8Arrays";
 const ivBitSize = 128;
 const blockByteSize = 16;
 
-async function deriveKeyAndIvByPbkdf2(salt: Uint8Array, password: string, options: { keyBits: 128 | 256, iterations: number, hash: "SHA-256" }): Promise<{ key: Uint8Array, iv: Uint8Array }> {
+export async function deriveKeyAndIvByPbkdf2(salt: Uint8Array, password: string, options: { keyBits: 128 | 256, iterations: number, hash: HashAlgorithmIdentifier }): Promise<{ key: Uint8Array, iv: Uint8Array }> {
   const keyMaterial = await window.crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(password),
@@ -71,7 +71,7 @@ export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, params
   });
 }
 
-export function aesCtrEncryptWithPbkdf2(readableStream: ReadableStream<Uint8Array>, password: string, pbkdf2Options: { keyBits: 128 | 256, iterations: number, hash: "SHA-256" } ): ReadableStream<Uint8Array> {
+export function aesCtrEncryptWithPbkdf2(readableStream: ReadableStream<Uint8Array>, password: string, pbkdf2Options: { keyBits: 128 | 256, iterations: number, hash: HashAlgorithmIdentifier } ): ReadableStream<Uint8Array> {
   const salt = crypto.getRandomValues(new Uint8Array(8));
   let key: Uint8Array;
   let iv: Uint8Array;
@@ -144,7 +144,7 @@ export function aesCtrDecrypt(readableStream: ReadableStream<Uint8Array>, params
   });
 }
 
-export function aesCtrDecryptWithPbkdf2(encryptedReadableStream: ReadableStream<Uint8Array>, password: string, pbkdf2Options: { keyBits: 128 | 256, iterations: number, hash: "SHA-256" } ): ReadableStream<Uint8Array> {
+export function aesCtrDecryptWithPbkdf2(encryptedReadableStream: ReadableStream<Uint8Array>, password: string, pbkdf2Options: { keyBits: 128 | 256, iterations: number, hash: HashAlgorithmIdentifier } ): ReadableStream<Uint8Array> {
   const encryptedReaderWithSalt = new ReadableStreamSizedReader(encryptedReadableStream.getReader());
   let salt: Uint8Array;
   let decryptedReader: ReadableStreamDefaultReader<Uint8Array>;

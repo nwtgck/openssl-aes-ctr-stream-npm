@@ -1,5 +1,11 @@
 import * as assert from 'power-assert';
-import {aesCtrDecrypt, aesCtrDecryptWithPbkdf2, aesCtrEncrypt, aesCtrEncryptWithPbkdf2} from "../src";
+import {
+  aesCtrDecrypt,
+  aesCtrDecryptWithPbkdf2,
+  aesCtrEncrypt,
+  aesCtrEncryptWithPbkdf2,
+  deriveKeyAndIvByPbkdf2
+} from "../src";
 import {readableStreamToUint8Array, base64ToUint8Array, uint8ArrayToString} from "binconv";
 
 function hexStringToUint8Array(hexString: String): Uint8Array {
@@ -109,5 +115,38 @@ describe('aes-ctr', () => {
     const decryptedReadableStream = aesCtrDecryptWithPbkdf2(encryptedReadableStream, password, pbkdf2Options)
     const decryptedText: string = new TextDecoder().decode(await readableStreamToUint8Array(decryptedReadableStream));
     assert.strictEqual(decryptedText, 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdeABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCD01234567890123456789012345678901234567890123');
+  });
+});
+
+
+describe('deriveKeyAndIvByPbkdf2', () => {
+  it('should derive key as the same as openssl does where 128-bit key -S AC2FDA1FA716E4B3 -md sha1 -iter 100000 -pass pass:1234', async () => {
+    const salt = hexStringToUint8Array("AC2FDA1FA716E4B3");
+    const password = "1234";
+    const {key, iv} = await deriveKeyAndIvByPbkdf2(salt, password, {
+      keyBits: 128,
+      iterations: 100000,
+      hash: "SHA-1",
+    });
+    // expected ones found by: echo | openssl aes-128-ctr -p -pbkdf2 -S AC2FDA1FA716E4B3 -md sha1 -iter 100000 -pass pass:1234 -a
+    const expectedKey = hexStringToUint8Array("3B7DB00C636E600EE566C1A6A8E49DD8");
+    const expectedIv = hexStringToUint8Array("C250CA14C1EBFDD4E359AA304E5085A0");
+    assert.deepStrictEqual(key, expectedKey);
+    assert.deepStrictEqual(iv, expectedIv);
+  });
+
+  it('should derive key as the same as openssl does where 128-bit key -S AC2FDA1FA716E4B3 -md sha512 -iter 100000 -pass pass:1234', async () => {
+    const salt = hexStringToUint8Array("AC2FDA1FA716E4B3");
+    const password = "1234";
+    const {key, iv} = await deriveKeyAndIvByPbkdf2(salt, password, {
+      keyBits: 128,
+      iterations: 100000,
+      hash: "SHA-512",
+    });
+    // expected ones found by: echo | openssl aes-128-ctr -p -pbkdf2 -S AC2FDA1FA716E4B3 -md sha512 -iter 100000 -pass pass:1234 -a
+    const expectedKey = hexStringToUint8Array("3549BB0C39237346E2BA4519E30EBFB9");
+    const expectedIv = hexStringToUint8Array("A83430DA81C505A5071F4363104B5372");
+    assert.deepStrictEqual(key, expectedKey);
+    assert.deepStrictEqual(iv, expectedIv);
   });
 });
