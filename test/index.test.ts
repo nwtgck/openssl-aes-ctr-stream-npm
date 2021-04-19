@@ -61,6 +61,7 @@ describe('aes-ctr', () => {
     });
     const password = "1234";
     const pbkdf2Options = {
+      keyBits: 256,
       iterations: 100000,
       hash: "SHA-256",
     } as const;
@@ -80,6 +81,7 @@ describe('aes-ctr', () => {
     });
     const password = "1234";
     const pbkdf2Options = {
+      keyBits: 256,
       iterations: 100000,
       hash: "SHA-256",
     } as const;
