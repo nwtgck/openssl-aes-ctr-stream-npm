@@ -73,8 +73,6 @@ export function aesCtrEncrypt(readableStream: ReadableStream<Uint8Array>, params
 
 export function aesCtrEncryptWithPbkdf2(readableStream: ReadableStream<Uint8Array>, pbkdf2Options: { password: string, keyBits: 128 | 256, iterations: number, hash: HashAlgorithmIdentifier } ): ReadableStream<Uint8Array> {
   const salt = crypto.getRandomValues(new Uint8Array(8));
-  let key: Uint8Array;
-  let iv: Uint8Array;
   let reader: ReadableStreamDefaultReader<Uint8Array>;
 
   return new ReadableStream({
@@ -83,12 +81,10 @@ export function aesCtrEncryptWithPbkdf2(readableStream: ReadableStream<Uint8Arra
         new TextEncoder().encode('Salted__'),
         salt
       ]));
-      const keyAndIv = await deriveKeyAndIvByPbkdf2({
+      const {key, iv} = await deriveKeyAndIvByPbkdf2({
         salt,
         ...pbkdf2Options
       });
-      key = keyAndIv.key;
-      iv = keyAndIv.iv;
       reader = aesCtrEncrypt(readableStream, { salt, key, iv }).getReader();
     },
     async pull(ctrl) {
@@ -149,7 +145,6 @@ export function aesCtrDecrypt(readableStream: ReadableStream<Uint8Array>, params
 
 export function aesCtrDecryptWithPbkdf2(encryptedReadableStream: ReadableStream<Uint8Array>, pbkdf2Options: { password: string, keyBits: 128 | 256, iterations: number, hash: HashAlgorithmIdentifier } ): ReadableStream<Uint8Array> {
   const encryptedReaderWithSalt = new ReadableStreamSizedReader(encryptedReadableStream.getReader());
-  let salt: Uint8Array;
   let decryptedReader: ReadableStreamDefaultReader<Uint8Array>;
   return new ReadableStream({
     async start() {
@@ -157,7 +152,7 @@ export function aesCtrDecryptWithPbkdf2(encryptedReadableStream: ReadableStream<
       throwIfUnexpectedLength(Salted__, 8);
       const saltResult = await encryptedReaderWithSalt.read(8);
       throwIfUnexpectedLength(saltResult, 8);
-      salt = saltResult.value;
+      const salt = saltResult.value;
       const {key, iv} = await deriveKeyAndIvByPbkdf2({
         salt,
         ...pbkdf2Options
