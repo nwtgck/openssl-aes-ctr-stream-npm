@@ -30,7 +30,7 @@
     "karma-jasmine": "^5.1.0",
     "karma-typescript": "^5.5.3",
     "power-assert": "^1.6.1",
-    "typescript": "^4.7.4"
+    "typescript": "^4.8.3"
   },
   "dependencies": {
     "binconv": "^0.2.0",
